@@ -144,11 +144,17 @@ static void ppmOverflowCallback(timerOvrHandlerRec_t* cbRec, captureCompare_t ca
     ppmDev.largeCounter += capture + 1;
 }
 
+#define range(lo,hi) (ppmDev.deltaTime > (lo) && ppmDev.deltaTime < (hi))
+
 static void ppmEdgeCallback(timerCCHandlerRec_t* cbRec, captureCompare_t capture)
 {
     UNUSED(cbRec);
     int32_t i;
-
+    static int timeCount;
+     static int prevTemp;
+     static bool isIncrease = false;
+     static bool isDecrease = false;
+    static uint16_t ppmDevsaveDeltaTime = 1001;
     /* Shift the last measurement out */
     ppmDev.previousTime = ppmDev.currentTime;
 
@@ -213,6 +219,100 @@ static void ppmEdgeCallback(timerCCHandlerRec_t* cbRec, captureCompare_t capture
         if (ppmDev.deltaTime > PPM_IN_MIN_CHANNEL_PULSE_US
             && ppmDev.deltaTime < PPM_IN_MAX_CHANNEL_PULSE_US
             && ppmDev.pulseIndex < PPM_IN_MAX_NUM_CHANNELS) {
+            //TEST
+                         #if 1
+                         //operating throttle
+                         if(ppmDev.pulseIndex == 2)
+                         {
+                             int t_temp = 0;
+                  //           captures[PWM_PORTS_OR_PPM_CAPTURE_COUNT] = ppmDev.deltaTime;
+                             if range(1480,1520) {
+                                 prevTemp = 0;
+                                 timeCount = 0;
+                             }
+                             ///////////////////////////up//////////////////////////////////
+                             if range(1520,2010)
+                             {
+                                 if range(1550,1650) {
+                                     t_temp = 10;
+                                 }
+                                 if range(1650,1750) {
+                                     t_temp = 20;
+                                 }
+                                 if range(1750,1850) {
+                                     ppmDevsaveDeltaTime += 30;
+                                 }
+                                 if range(1850,2010) {
+                                     ppmDevsaveDeltaTime += 40;
+                                 }
+                                 if (prevTemp > t_temp) {
+                         isIncrease = false;
+                     } else if(prevTemp == t_temp) {
+                         timeCount++;
+                         if(timeCount > 3)
+                         {
+                             timeCount = 0;
+                             isIncrease = true;
+                         }
+                     } else {
+                         timeCount = 0;
+                         prevTemp = t_temp;
+                     }
+                     if(isIncrease) { 
+                         isIncrease = false;
+                         ppmDevsaveDeltaTime += prevTemp; 
+                     }
+                  }   
+                 
+                     //////////////////////////down/////////////////////////////////
+                 if range(1000,1480) {
+                     if range(1350,1450) {
+                         t_temp = -10;
+                     }
+                     if range(1250,1350) {
+                         t_temp = -20;
+                     }
+                     if range(1150,1250) {
+                         t_temp = -30;
+                     }
+                     if range(1050,1150) {
+                         ppmDevsaveDeltaTime -= 40;
+                     }
+                      if range(1000,1010) {
+                          ppmDevsaveDeltaTime -= 40;
+                          timeCount++;
+                          if(timeCount > 200)
+                          {
+                              timeCount = 0;
+                              //mwDisarm();
+                          }
+                      }
+                      if (prevTemp < t_temp) {
+                          isDecrease = false;
+                      } else if (prevTemp == t_temp) {
+                          timeCount++;
+                          if (timeCount > 3) {
+                              timeCount = 0;
+                              isDecrease = true;
+                          }
+                      } else {
+                          timeCount = 0;
+                          prevTemp = t_temp;
+                      }
+                      if(isDecrease) { 
+                          isDecrease = false;
+                          ppmDevsaveDeltaTime += prevTemp; 
+                      }
+                  }
+                  if(ppmDevsaveDeltaTime < 1001) {
+                      ppmDevsaveDeltaTime = 1001;
+                  }
+                  if(ppmDevsaveDeltaTime > 1850) {
+                      ppmDevsaveDeltaTime = 1850;
+                  }
+                  ppmDev.deltaTime = ppmDevsaveDeltaTime;
+              }
+              #endif
             ppmDev.captures[ppmDev.pulseIndex] = ppmDev.deltaTime;
             ppmDev.pulseIndex++;
         } else {
